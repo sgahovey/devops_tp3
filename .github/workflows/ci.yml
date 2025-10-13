@@ -1,0 +1,161 @@
+name: CI/CD Pipeline - Gestion des Salles
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Job pour le Backend PHP
+  backend-build-and-test:
+    name: Backend PHP - Build & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gestion_salles_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐘 Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: pdo, pdo_pgsql, mbstring
+          coverage: none
+
+      - name: 📦 Install Composer dependencies
+        working-directory: ./backend
+        run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: 🧪 Run PHPUnit tests
+        working-directory: ./backend
+        env:
+          DB_HOST: localhost
+          DB_NAME: gestion_salles_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: vendor/bin/phpunit --testdox
+
+      - name: 🐳 Build Backend Docker Image
+        run: |
+          docker build -t gestion-salles-backend:${{ github.sha }} ./backend
+          docker tag gestion-salles-backend:${{ github.sha }} gestion-salles-backend:latest
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: docker system prune -f
+
+  # Job pour le Frontend Node.js
+  frontend-build-and-test:
+    name: Frontend React - Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 📥 Install dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: 🧪 Run tests
+        working-directory: ./frontend
+        run: npm test -- --passWithNoTests --watchAll=false
+
+      - name: 🏗️ Build application
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: 🐳 Build Frontend Docker Image
+        run: |
+          docker build -t gestion-salles-frontend:${{ github.sha }} ./frontend
+          docker tag gestion-salles-frontend:${{ github.sha }} gestion-salles-frontend:latest
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: docker system prune -f
+
+  # Job pour tester Docker Compose
+  docker-compose-test:
+    name: Docker Compose - Integration Test
+    runs-on: ubuntu-latest
+    needs: [backend-build-and-test, frontend-build-and-test]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐳 Build and start services
+        run: |
+          docker-compose build
+          docker-compose up -d
+
+      - name: ⏳ Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+
+      - name: 🔍 Check services health
+        run: |
+          docker-compose ps
+          curl -f http://localhost:8080/api/health || exit 1
+          curl -f http://localhost:3000 || exit 1
+
+      - name: 📊 Show logs
+        if: always()
+        run: docker-compose logs
+
+      - name: 🛑 Stop services
+        if: always()
+        run: docker-compose down -v
+
+  # Job optionnel pour publier les images (à activer si vous avez Docker Hub)
+  publish-images:
+    name: Publish Docker Images
+    runs-on: ubuntu-latest
+    needs: [docker-compose-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🔐 Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+        continue-on-error: true
+
+      - name: 🐳 Build and Push Backend Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/gestion-salles-backend:latest ./backend
+          docker push ${{ secrets.DOCKER_USERNAME }}/gestion-salles-backend:latest
+        continue-on-error: true
+
+      - name: 🐳 Build and Push Frontend Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/gestion-salles-frontend:latest ./frontend
+          docker push ${{ secrets.DOCKER_USERNAME }}/gestion-salles-frontend:latest
+        continue-on-error: true
+

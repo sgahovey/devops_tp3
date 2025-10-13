@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Service Base de données PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: gestion_salles_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gestion_salles
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service Backend PHP
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gestion_salles_backend
+    environment:
+      DB_HOST: db
+      DB_NAME: gestion_salles
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/var/www/html
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # Service Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gestion_salles_frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app_network
+    restart: unless-stopped
+
+# Réseau commun
+networks:
+  app_network:
+    driver: bridge
+    name: gestion_salles_network
+
+# Volumes
+volumes:
+  postgres_data:
+    name: gestion_salles_postgres_data
+
+
