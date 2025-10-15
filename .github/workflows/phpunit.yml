@@ -1,0 +1,69 @@
+name: PHPUnit Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: user
+          MYSQL_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mbstring, xml, json, pdo, mysql, intl
+        coverage: none
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: Copy .env for tests
+      run: |
+        cd backend
+        cp .env.testing .env
+        php artisan key:generate
+
+    - name: Installer les dépendances PHP
+      run: |
+        cd backend
+        composer require --dev phpunit/phpunit
+
+    - name: Exécuter les tests d'API
+      env:
+        DB_CONNECTION: mysql
+        DB_DATABASE: test_db
+        DB_USERNAME: user
+        DB_PASSWORD: password
+        DB_HOST: 127.0.0.1
+      run: |
+        cd backend
+        echo "Lancement des tests unitaires..."
+        ./vendor/bin/phpunit --testdox tests/ApiTest.php
+        
+        # Vérification du code de sortie
+        if [ $? -ne 0 ]; then
+            echo "❌ Certains tests ont échoué"
+            exit 1
+        else
+            echo "✅ Tous les tests ont réussi"
+        fi
