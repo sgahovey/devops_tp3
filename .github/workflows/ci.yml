@@ -87,8 +87,8 @@ jobs:
 
       - name: 🐳 Build and start services
         run: |
-          docker-compose build
-          docker-compose up -d
+          docker compose build
+          docker compose up -d
 
       - name: ⏳ Wait for services to be ready
         run: |
@@ -97,17 +97,17 @@ jobs:
 
       - name: 🔍 Check services health
         run: |
-          docker-compose ps
+          docker compose ps
           curl -f http://localhost:8080/api/health || exit 1
           curl -f http://localhost:3000 || exit 1
 
       - name: 📊 Show logs
         if: always()
-        run: docker-compose logs
+        run: docker compose logs
 
       - name: 🛑 Stop services
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   # Job optionnel pour publier les images (à activer si vous avez Docker Hub)
   publish-images:
