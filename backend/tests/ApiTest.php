@@ -5,9 +5,9 @@ use PHPUnit\Framework\TestCase;
 class ApiTest extends TestCase
 {
     public function testHealthEndpoint()
-    {
-        $this->assertTrue(true);
-    }
+{
+    $this->assertTrue(false);  // Ce test échouera
+}
 
     public function testCreateSalleValidation()
     {
