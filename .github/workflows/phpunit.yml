@@ -32,23 +32,32 @@ jobs:
         extensions: mbstring, xml, json, pdo, mysql, intl
         coverage: none
 
-    - name: Install dependencies
+    - name: Afficher la structure du projet
       run: |
-        cd backend
-        composer install --no-progress --prefer-dist --optimize-autoloader
+        ls -la
+        echo "\nContenu du répertoire backend:"
+        ls -la backend/
 
-    - name: Copy .env for tests
+    - name: Installer PHPUnit
+      working-directory: ./backend
       run: |
-        cd backend
-        cp .env.testing .env
-        php artisan key:generate
-
-    - name: Installer les dépendances PHP
-      run: |
-        cd backend
         composer require --dev phpunit/phpunit
 
-    - name: Exécuter les tests d'API
+    - name: Configurer l'environnement de test
+      working-directory: ./backend
+      run: |
+        if [ ! -f .env ]; then
+          echo "Création d'un fichier .env de test"
+          echo "DB_CONNECTION=mysql" > .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=test_db" >> .env
+          echo "DB_USERNAME=user" >> .env
+          echo "DB_PASSWORD=password" >> .env
+        fi
+
+    - name: Exécuter les tests unitaires
+      working-directory: ./backend
       env:
         DB_CONNECTION: mysql
         DB_DATABASE: test_db
@@ -56,11 +65,9 @@ jobs:
         DB_PASSWORD: password
         DB_HOST: 127.0.0.1
       run: |
-        cd backend
-        echo "Lancement des tests unitaires..."
-        ./vendor/bin/phpunit --testdox tests/ApiTest.php
+        echo "Lancement des tests..."
+        ./vendor/bin/phpunit --testdox tests/
         
-        # Vérification du code de sortie
         if [ $? -ne 0 ]; then
             echo "❌ Certains tests ont échoué"
             exit 1
