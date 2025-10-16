@@ -11,14 +11,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Configuration de la base de données
-$host = getenv('DB_HOST') ?: 'db';
-$dbname = getenv('DB_NAME') ?: 'gestion_salles';
-$username = getenv('DB_USER') ?: 'postgres';
-$password = getenv('DB_PASSWORD') ?: 'postgres';
+// Support pour DATABASE_URL (Render, Heroku, etc.) et configuration Docker Compose
+$database_url = getenv('DATABASE_URL');
+
+if ($database_url) {
+    // Parse DATABASE_URL (format: postgresql://user:password@host:port/dbname)
+    $db = parse_url($database_url);
+    $host = $db['host'];
+    $dbname = ltrim($db['path'], '/');
+    $username = $db['user'];
+    $password = $db['pass'];
+    $port = isset($db['port']) ? $db['port'] : 5432;
+} else {
+    // Configuration Docker Compose locale
+    $host = getenv('DB_HOST') ?: 'db';
+    $dbname = getenv('DB_NAME') ?: 'gestion_salles';
+    $username = getenv('DB_USER') ?: 'postgres';
+    $password = getenv('DB_PASSWORD') ?: 'postgres';
+    $port = getenv('DB_PORT') ?: 5432;
+}
 
 try {
-    $pdo = new PDO("pgsql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+    $pdo = new PDO($dsn, $username, $password, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]);
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Erreur de connexion à la base de données: ' . $e->getMessage()]);
