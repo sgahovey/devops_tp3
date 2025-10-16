@@ -37,7 +37,7 @@ WORKDIR /var/www/html
 COPY . .
 
 # Installer les dépendances PHP
-RUN composer install --no-dev --optimize-autoloader || true
+RUN composer install --optimize-autoloader || true
 
 # Donner les permissions appropriées
 RUN chown -R www-data:www-data /var/www/html \
