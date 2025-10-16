@@ -1,0 +1,52 @@
+services:
+  # Service Base de données PostgreSQL
+  # Ce conteneur Docker sera déployé sur Railway
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gestion_salles
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Pas de port exposé publiquement (sécurisé)
+    # Accessible uniquement en interne par les autres services
+
+  # Service Backend PHP
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_NAME: gestion_salles
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    # Port 80 sera exposé publiquement par Railway
+
+  # Service Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      # Cette variable sera mise à jour sur Railway avec l'URL publique du backend
+      REACT_APP_API_URL: ${BACKEND_URL}/api
+    depends_on:
+      - backend
+    # Port 3000 sera exposé publiquement par Railway
+
+# Volumes
+volumes:
+  postgres_data:
+    # Railway gère automatiquement la persistance des volumes
+
