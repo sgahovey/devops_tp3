@@ -14,5 +14,14 @@ RUN chmod +x docker-compose.yml
 # Exposer les ports
 EXPOSE 3000 8080
 
-# Lancer docker-compose
-CMD ["docker-compose", "up", "--build"]
+# Script de démarrage avec gestion d'erreurs
+RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'set -e' >> /start.sh && \
+    echo 'echo "Starting docker-compose..."' >> /start.sh && \
+    echo 'docker-compose --version' >> /start.sh && \
+    echo 'docker --version' >> /start.sh && \
+    echo 'docker-compose up --build' >> /start.sh && \
+    chmod +x /start.sh
+
+# Lancer le script
+CMD ["/start.sh"]
