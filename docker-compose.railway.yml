@@ -1,6 +1,7 @@
+version: '3.8'
+
 services:
   # Service Base de données PostgreSQL
-  # Ce conteneur Docker sera déployé sur Railway
   db:
     image: postgres:15-alpine
     environment:
@@ -15,8 +16,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # Pas de port exposé publiquement (sécurisé)
-    # Accessible uniquement en interne par les autres services
 
   # Service Backend PHP
   backend:
@@ -28,10 +27,10 @@ services:
       DB_NAME: gestion_salles
       DB_USER: postgres
       DB_PASSWORD: postgres
+    ports:
+      - "8080:80"
     depends_on:
-      db:
-        condition: service_healthy
-    # Port 80 sera exposé publiquement par Railway
+      - db
 
   # Service Frontend React
   frontend:
@@ -39,14 +38,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      # Cette variable sera mise à jour sur Railway avec l'URL publique du backend
-      REACT_APP_API_URL: ${BACKEND_URL}/api
+      REACT_APP_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
-    # Port 3000 sera exposé publiquement par Railway
 
-# Volumes
 volumes:
   postgres_data:
-    # Railway gère automatiquement la persistance des volumes
-

@@ -20,7 +20,8 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'echo "Starting docker-compose..."' >> /start.sh && \
     echo 'docker-compose --version' >> /start.sh && \
     echo 'docker --version' >> /start.sh && \
-    echo 'docker-compose up --build' >> /start.sh && \
+    echo 'echo "Using Railway-compatible docker-compose.yml"' >> /start.sh && \
+    echo 'docker-compose -f docker-compose.railway.yml up --build' >> /start.sh && \
     chmod +x /start.sh
 
 # Lancer le script
