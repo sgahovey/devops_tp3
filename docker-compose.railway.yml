@@ -8,9 +8,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: gestion_salles
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Pas de volumes - Railway gère la persistance
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -23,7 +21,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.railway
     environment:
       DB_HOST: db
       DB_NAME: gestion_salles
@@ -43,7 +41,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.railway
     environment:
       REACT_APP_API_URL: ${RAILWAY_PUBLIC_DOMAIN:-http://localhost:8080}/api
     ports:
@@ -57,6 +55,3 @@ services:
 networks:
   app_network:
     driver: bridge
-
-volumes:
-  postgres_data:
