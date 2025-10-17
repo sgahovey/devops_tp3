@@ -56,6 +56,11 @@ RUN composer install --optimize-autoloader || true
 # Copier le frontend buildé
 COPY --from=frontend-build /app/build ./frontend-build
 
+# Configuration PostgreSQL pour accepter les connexions locales
+RUN echo "host all all 127.0.0.1/32 md5" >> /etc/postgresql/15/main/pg_hba.conf
+RUN echo "host all all ::1/128 md5" >> /etc/postgresql/15/main/pg_hba.conf
+RUN echo "listen_addresses = '\''localhost'\''" >> /etc/postgresql/15/main/postgresql.conf
+
 # Créer le script de démarrage
 RUN echo '#!/bin/bash\n\
 # Démarrer PostgreSQL\n\
