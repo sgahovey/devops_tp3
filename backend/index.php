@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Configuration de la base de données
-// Support pour DATABASE_URL (Render, Heroku, etc.) et configuration Docker Compose
+// Support pour DATABASE_URL (Railway, Render, Heroku, etc.) et configuration Docker Compose
 $database_url = getenv('DATABASE_URL');
 
 if ($database_url) {
@@ -23,8 +23,8 @@ if ($database_url) {
     $password = $db['pass'];
     $port = isset($db['port']) ? $db['port'] : 5432;
 } else {
-    // Configuration Docker Compose locale
-    $host = getenv('DB_HOST') ?: 'db';
+    // Configuration conteneur unique (Railway)
+    $host = getenv('DB_HOST') ?: 'localhost';
     $dbname = getenv('DB_NAME') ?: 'gestion_salles';
     $username = getenv('DB_USER') ?: 'postgres';
     $password = getenv('DB_PASSWORD') ?: 'postgres';
