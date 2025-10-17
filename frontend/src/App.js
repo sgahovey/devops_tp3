@@ -236,7 +236,7 @@ function App() {
       </main>
 
       <footer className="App-footer">
-        <p>© 2025 - TP3 DevOps - Gestion des Salles</p>
+        <p>© 2025 - TP6 DevOps - Gestion des Salles</p>
       </footer>
     </div>
   );
