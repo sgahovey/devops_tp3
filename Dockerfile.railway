@@ -60,11 +60,13 @@ COPY --from=frontend-build /app/build ./frontend-build
 RUN echo '#!/bin/bash\n\
 # Démarrer PostgreSQL\n\
 service postgresql start\n\
-sleep 10\n\
+sleep 15\n\
 \n\
-# Créer la base de données et les tables\n\
-sudo -u postgres psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD '\''postgres'\'';" 2>/dev/null || true\n\
+# Configurer PostgreSQL\n\
+sudo -u postgres psql --command "ALTER USER postgres PASSWORD '\''postgres'\'';" 2>/dev/null || true\n\
 sudo -u postgres createdb -O postgres gestion_salles 2>/dev/null || true\n\
+\n\
+# Créer les tables et insérer les données\n\
 sudo -u postgres psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (id SERIAL PRIMARY KEY, nom VARCHAR(255) NOT NULL, capacite INTEGER NOT NULL, equipement TEXT, disponible BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);" 2>/dev/null || true\n\
 sudo -u postgres psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES ('\''Salle A101'\'', 30, '\''Projecteur, Tableau blanc'\'', true), ('\''Salle B202'\'', 50, '\''Vidéoprojecteur, Micro'\'', true), ('\''Salle C303'\'', 20, '\''Tableau interactif'\'', false), ('\''Salle D404'\'', 40, '\''Système audio, Écran'\'', true) ON CONFLICT DO NOTHING;" 2>/dev/null || true\n\
 \n\
