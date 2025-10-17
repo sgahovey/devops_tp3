@@ -8,7 +8,8 @@
 # 3. Déploiement de l'application via docker-compose
 
 - name: Déploiement automatique de l'application Gestion des Salles
-  hosts: all
+  hosts: localhost
+  connection: local
   become: yes  # Exécuter les commandes en tant que root (sudo)
   vars:
     # Variables configurables
