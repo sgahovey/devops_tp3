@@ -1,4 +1,4 @@
-# Dockerfile Railway - Tout en un conteneur
+# Dockerfile Railway - Version simplifiée
 FROM node:18-alpine as frontend-build
 
 # Build du frontend
@@ -53,29 +53,17 @@ RUN composer install --optimize-autoloader || true
 # Copier le frontend buildé
 COPY --from=frontend-build /app/build ./frontend-build
 
-# Configuration PostgreSQL
-USER postgres
-RUN /etc/init.d/postgresql start && \
-    psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD 'postgres';" && \
-    createdb -O postgres gestion_salles && \
-    psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (
-        id SERIAL PRIMARY KEY,
-        nom VARCHAR(255) NOT NULL,
-        capacite INTEGER NOT NULL,
-        equipement TEXT,
-        disponible BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );" && \
-    psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES 
-        ('Salle A101', 30, 'Projecteur, Tableau blanc', true),
-        ('Salle B202', 50, 'Vidéoprojecteur, Micro', true),
-        ('Salle C303', 20, 'Tableau interactif', false),
-        ('Salle D404', 40, 'Système audio, Écran', true)
-    ON CONFLICT DO NOTHING;"
+# Créer le script d'initialisation de la base de données
+RUN echo '#!/bin/bash\n\
+/etc/init.d/postgresql start\n\
+sleep 5\n\
+sudo -u postgres psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD '\''postgres'\'';"\n\
+sudo -u postgres createdb -O postgres gestion_salles\n\
+sudo -u postgres psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (id SERIAL PRIMARY KEY, nom VARCHAR(255) NOT NULL, capacite INTEGER NOT NULL, equipement TEXT, disponible BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"\n\
+sudo -u postgres psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES ('\''Salle A101'\'', 30, '\''Projecteur, Tableau blanc'\'', true), ('\''Salle B202'\'', 50, '\''Vidéoprojecteur, Micro'\'', true), ('\''Salle C303'\'', 20, '\''Tableau interactif'\'', false), ('\''Salle D404'\'', 40, '\''Système audio, Écran'\'', true) ON CONFLICT DO NOTHING;"\n\
+' > /usr/local/bin/init-db.sh && chmod +x /usr/local/bin/init-db.sh
 
 # Configuration Supervisor
-USER root
 RUN echo '[supervisord]\n\
 nodaemon=true\n\
 \n\
@@ -93,7 +81,14 @@ autorestart=true\n\
 [program:frontend]\n\
 command=serve -s /var/www/html/frontend-build -l 3000\n\
 autostart=true\n\
-autorestart=true' > /etc/supervisor/conf.d/supervisord.conf
+autorestart=true\n\
+\n\
+[program:init-db]\n\
+command=/usr/local/bin/init-db.sh\n\
+autostart=true\n\
+autorestart=false\n\
+startsecs=0\n\
+' > /etc/supervisor/conf.d/supervisord.conf
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
