@@ -1,0 +1,246 @@
+---
+# Playbook Ansible pour déployer l'application de gestion des salles
+# TP7 - OPERATE : Exploitation & maintenance
+# 
+# Ce playbook automatise :
+# 1. Installation de Docker et Docker Compose
+# 2. Clone du repository GitHub
+# 3. Déploiement de l'application via docker-compose
+
+- name: Déploiement automatique de l'application Gestion des Salles
+  hosts: all
+  become: yes  # Exécuter les commandes en tant que root (sudo)
+  vars:
+    # Variables configurables
+    github_repo: "https://github.com/sgahovey/devops_tp3.git"
+    app_directory: "/opt/gestion-salles"
+    docker_compose_version: "2.24.5"
+  
+  tasks:
+    # ========================================
+    # ÉTAPE 1 : Mise à jour du système
+    # ========================================
+    - name: Mettre à jour le cache des paquets apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      tags: 
+        - setup
+        - update
+
+    # ========================================
+    # ÉTAPE 2 : Installation des prérequis
+    # ========================================
+    - name: Installer les paquets prérequis pour Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - git
+          - python3-pip
+        state: present
+      when: ansible_os_family == "Debian"
+      tags:
+        - setup
+        - docker
+
+    # ========================================
+    # ÉTAPE 3 : Installation de Docker
+    # ========================================
+    - name: Ajouter la clé GPG officielle de Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      when: ansible_os_family == "Debian"
+      tags:
+        - docker
+
+    - name: Ajouter le repository Docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+      when: ansible_os_family == "Debian"
+      tags:
+        - docker
+
+    - name: Installer Docker CE
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      tags:
+        - docker
+
+    - name: Démarrer et activer le service Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags:
+        - docker
+
+    # ========================================
+    # ÉTAPE 4 : Installation de Docker Compose
+    # ========================================
+    - name: Télécharger Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      tags:
+        - docker
+        - compose
+
+    - name: Vérifier l'installation de Docker Compose
+      command: docker-compose --version
+      register: compose_version
+      changed_when: false
+      tags:
+        - docker
+        - compose
+
+    - name: Afficher la version de Docker Compose
+      debug:
+        msg: "{{ compose_version.stdout }}"
+      tags:
+        - docker
+        - compose
+
+    # ========================================
+    # ÉTAPE 5 : Configuration utilisateur Docker
+    # ========================================
+    - name: Ajouter l'utilisateur courant au groupe docker
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      tags:
+        - docker
+        - permissions
+
+    # ========================================
+    # ÉTAPE 6 : Clone du repository GitHub
+    # ========================================
+    - name: Créer le répertoire de l'application
+      file:
+        path: "{{ app_directory }}"
+        state: directory
+        mode: '0755'
+      tags:
+        - deploy
+        - git
+
+    - name: Cloner le repository GitHub
+      git:
+        repo: "{{ github_repo }}"
+        dest: "{{ app_directory }}"
+        version: main
+        force: yes
+      tags:
+        - deploy
+        - git
+
+    # ========================================
+    # ÉTAPE 7 : Arrêt des conteneurs existants
+    # ========================================
+    - name: Arrêter les conteneurs Docker existants
+      shell: |
+        cd {{ app_directory }}
+        docker-compose down || true
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+      tags:
+        - deploy
+        - docker
+
+    # ========================================
+    # ÉTAPE 8 : Déploiement avec Docker Compose
+    # ========================================
+    - name: Lancer docker-compose up -d
+      shell: |
+        cd {{ app_directory }}
+        docker-compose up -d --build
+      args:
+        executable: /bin/bash
+      tags:
+        - deploy
+        - docker
+
+    - name: Attendre que les conteneurs démarrent
+      pause:
+        seconds: 15
+      tags:
+        - deploy
+
+    # ========================================
+    # ÉTAPE 9 : Vérification du déploiement
+    # ========================================
+    - name: Vérifier que les conteneurs sont en cours d'exécution
+      shell: |
+        cd {{ app_directory }}
+        docker-compose ps
+      args:
+        executable: /bin/bash
+      register: docker_ps
+      tags:
+        - deploy
+        - verify
+
+    - name: Afficher l'état des conteneurs
+      debug:
+        msg: "{{ docker_ps.stdout_lines }}"
+      tags:
+        - deploy
+        - verify
+
+    - name: Tester l'API backend
+      uri:
+        url: http://localhost:8080/api/health
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 3
+      ignore_errors: yes
+      tags:
+        - deploy
+        - verify
+
+    - name: Afficher le résultat du health check
+      debug:
+        msg: "API Status: {{ health_check.status }} - {{ health_check.json | default('N/A') }}"
+      when: health_check is succeeded
+      tags:
+        - deploy
+        - verify
+
+    # ========================================
+    # ÉTAPE 10 : Affichage des informations
+    # ========================================
+    - name: Afficher les URLs d'accès
+      debug:
+        msg:
+          - "============================================="
+          - "✅ DÉPLOIEMENT RÉUSSI !"
+          - "============================================="
+          - "Frontend : http://{{ ansible_default_ipv4.address }}:3000"
+          - "Backend  : http://{{ ansible_default_ipv4.address }}:8080/api"
+          - "Health   : http://{{ ansible_default_ipv4.address }}:8080/api/health"
+          - "============================================="
+          - "Commandes utiles :"
+          - "  - Voir les logs : cd {{ app_directory }} && docker-compose logs -f"
+          - "  - Redémarrer   : cd {{ app_directory }} && docker-compose restart"
+          - "  - Arrêter      : cd {{ app_directory }} && docker-compose down"
+          - "============================================="
+      tags:
+        - always
+
