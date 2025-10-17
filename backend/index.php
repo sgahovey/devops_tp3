@@ -24,7 +24,7 @@ if ($database_url) {
     $port = isset($db['port']) ? $db['port'] : 5432;
 } else {
     // Configuration conteneur unique (Railway)
-    $host = getenv('DB_HOST') ?: 'localhost';
+    $host = getenv('DB_HOST') ?: '127.0.0.1';
     $dbname = getenv('DB_NAME') ?: 'gestion_salles';
     $username = getenv('DB_USER') ?: 'postgres';
     $password = getenv('DB_PASSWORD') ?: 'postgres';

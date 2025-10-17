@@ -26,8 +26,6 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_pgsql \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Créer le cluster PostgreSQL
-RUN pg_createcluster 17 main
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -60,10 +58,11 @@ RUN composer install --optimize-autoloader || true
 # Copier le frontend buildé
 COPY --from=frontend-build /app/build ./frontend-build
 
-# Configuration PostgreSQL pour accepter les connexions locales
-RUN echo "host all all 127.0.0.1/32 md5" >> /etc/postgresql/17/main/pg_hba.conf && \
-    echo "host all all ::1/128 md5" >> /etc/postgresql/17/main/pg_hba.conf && \
-    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/g" /etc/postgresql/17/main/postgresql.conf
+# Configuration PostgreSQL pour accepter les connexions locales (détection automatique de version)
+RUN PG_VER=$(ls /etc/postgresql | head -n1) && \
+    echo "host all all 127.0.0.1/32 md5" >> /etc/postgresql/$PG_VER/main/pg_hba.conf && \
+    echo "host all all ::1/128 md5" >> /etc/postgresql/$PG_VER/main/pg_hba.conf && \
+    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/" /etc/postgresql/$PG_VER/main/postgresql.conf
 
 # Créer le script de démarrage
 RUN echo '#!/bin/bash\n\
