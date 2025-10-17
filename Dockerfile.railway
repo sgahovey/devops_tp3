@@ -30,22 +30,29 @@ RUN apt-get update && apt-get install -y \
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Installer serve pour le frontend
-RUN npm install -g serve
-
 # Configurer Apache
 RUN a2enmod rewrite
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# Configuration Apache
+# Configuration Apache pour servir le frontend et l'API
 RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html\n\
-    <Directory /var/www/html>\n\
+    DocumentRoot /var/www/html/frontend-build\n\
+    \n\
+    # Servir le frontend React\n\
+    <Directory /var/www/html/frontend-build>\n\
         Options Indexes FollowSymLinks\n\
         AllowOverride All\n\
         Require all granted\n\
-        FallbackResource /index.php\n\
+        FallbackResource /index.html\n\
     </Directory>\n\
+    \n\
+    # Servir l API PHP\n\
+    Alias /api /var/www/html/index.php\n\
+    <Location /api>\n\
+        Require all granted\n\
+        SetHandler application/x-httpd-php\n\
+    </Location>\n\
+    \n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
@@ -78,21 +85,15 @@ sudo -u postgres createdb -O postgres gestion_salles 2>/dev/null || true\n\
 sudo -u postgres psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (id SERIAL PRIMARY KEY, nom VARCHAR(255) NOT NULL, capacite INTEGER NOT NULL, equipement TEXT, disponible BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);" 2>/dev/null || true\n\
 sudo -u postgres psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES ('\''Salle A101'\'', 30, '\''Projecteur, Tableau blanc'\'', true), ('\''Salle B202'\'', 50, '\''Vidéoprojecteur, Micro'\'', true), ('\''Salle C303'\'', 20, '\''Tableau interactif'\'', false), ('\''Salle D404'\'', 40, '\''Système audio, Écran'\'', true) ON CONFLICT DO NOTHING;" 2>/dev/null || true\n\
 \n\
-# Démarrer Apache en arrière-plan\n\
-apache2-foreground &\n\
-\n\
-# Démarrer le frontend en arrière-plan\n\
-serve -s /var/www/html/frontend-build -l 3000 &\n\
-\n\
-# Attendre indéfiniment\n\
-wait\n\
+# Démarrer Apache (sert le frontend + API)\n\
+apache2-foreground\n\
 ' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
 
-# Exposer les ports
-EXPOSE 80 3000
+# Exposer le port 80 (Apache sert le frontend + API)
+EXPOSE 80
 
 # Démarrer l'application
 CMD ["/usr/local/bin/start.sh"]
