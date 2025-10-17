@@ -25,6 +25,11 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_pgsql \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Créer le cluster PostgreSQL
+RUN service postgresql start && \
+    sudo -u postgres pg_createcluster 17 main --start && \
+    service postgresql stop
+
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -65,10 +70,10 @@ RUN echo "listen_addresses = '\''localhost'\''" >> /etc/postgresql/17/main/postg
 RUN echo '#!/bin/bash\n\
 # Démarrer PostgreSQL\n\
 service postgresql start\n\
-sleep 20\n\
+sleep 10\n\
 \n\
-# Configurer PostgreSQL - méthode alternative\n\
-sudo -u postgres psql --command "\\password postgres" <<< "postgres\npostgres" 2>/dev/null || true\n\
+# Configurer PostgreSQL\n\
+sudo -u postgres psql --command "ALTER USER postgres PASSWORD '\''postgres'\'';" 2>/dev/null || true\n\
 sudo -u postgres createdb -O postgres gestion_salles 2>/dev/null || true\n\
 \n\
 # Créer les tables et insérer les données\n\
