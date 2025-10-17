@@ -1,4 +1,4 @@
-# Dockerfile Railway - Version simplifiée
+# Dockerfile Railway - Version finale simplifiée
 FROM node:18-alpine as frontend-build
 
 # Build du frontend
@@ -11,7 +11,7 @@ RUN npm run build
 # Image finale avec PostgreSQL + PHP + Frontend
 FROM php:8.1-apache
 
-# Installer PostgreSQL, Node.js et les dépendances
+# Installer PostgreSQL et les dépendances
 RUN apt-get update && apt-get install -y \
     postgresql postgresql-contrib \
     libpq-dev \
@@ -56,42 +56,27 @@ RUN composer install --optimize-autoloader || true
 # Copier le frontend buildé
 COPY --from=frontend-build /app/build ./frontend-build
 
-# Créer le script d'initialisation de la base de données
+# Créer le script de démarrage
 RUN echo '#!/bin/bash\n\
-/etc/init.d/postgresql start\n\
-sleep 5\n\
-sudo -u postgres psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD '\''postgres'\'';"\n\
-sudo -u postgres createdb -O postgres gestion_salles\n\
-sudo -u postgres psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (id SERIAL PRIMARY KEY, nom VARCHAR(255) NOT NULL, capacite INTEGER NOT NULL, equipement TEXT, disponible BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"\n\
-sudo -u postgres psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES ('\''Salle A101'\'', 30, '\''Projecteur, Tableau blanc'\'', true), ('\''Salle B202'\'', 50, '\''Vidéoprojecteur, Micro'\'', true), ('\''Salle C303'\'', 20, '\''Tableau interactif'\'', false), ('\''Salle D404'\'', 40, '\''Système audio, Écran'\'', true) ON CONFLICT DO NOTHING;"\n\
-' > /usr/local/bin/init-db.sh && chmod +x /usr/local/bin/init-db.sh
-
-# Configuration Supervisor
-RUN echo '[supervisord]\n\
-nodaemon=true\n\
+# Démarrer PostgreSQL\n\
+service postgresql start\n\
+sleep 10\n\
 \n\
-[program:postgresql]\n\
-command=/usr/lib/postgresql/13/bin/postgres -D /var/lib/postgresql/13/main -c config_file=/etc/postgresql/13/main/postgresql.conf\n\
-user=postgres\n\
-autostart=true\n\
-autorestart=true\n\
+# Créer la base de données et les tables\n\
+sudo -u postgres psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD '\''postgres'\'';" 2>/dev/null || true\n\
+sudo -u postgres createdb -O postgres gestion_salles 2>/dev/null || true\n\
+sudo -u postgres psql -d gestion_salles -c "CREATE TABLE IF NOT EXISTS salles (id SERIAL PRIMARY KEY, nom VARCHAR(255) NOT NULL, capacite INTEGER NOT NULL, equipement TEXT, disponible BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);" 2>/dev/null || true\n\
+sudo -u postgres psql -d gestion_salles -c "INSERT INTO salles (nom, capacite, equipement, disponible) VALUES ('\''Salle A101'\'', 30, '\''Projecteur, Tableau blanc'\'', true), ('\''Salle B202'\'', 50, '\''Vidéoprojecteur, Micro'\'', true), ('\''Salle C303'\'', 20, '\''Tableau interactif'\'', false), ('\''Salle D404'\'', 40, '\''Système audio, Écran'\'', true) ON CONFLICT DO NOTHING;" 2>/dev/null || true\n\
 \n\
-[program:apache2]\n\
-command=/usr/sbin/apache2ctl -D FOREGROUND\n\
-autostart=true\n\
-autorestart=true\n\
+# Démarrer Apache en arrière-plan\n\
+apache2-foreground &\n\
 \n\
-[program:frontend]\n\
-command=serve -s /var/www/html/frontend-build -l 3000\n\
-autostart=true\n\
-autorestart=true\n\
+# Démarrer le frontend en arrière-plan\n\
+serve -s /var/www/html/frontend-build -l 3000 &\n\
 \n\
-[program:init-db]\n\
-command=/usr/local/bin/init-db.sh\n\
-autostart=true\n\
-autorestart=false\n\
-startsecs=0\n\
-' > /etc/supervisor/conf.d/supervisord.conf
+# Attendre indéfiniment\n\
+wait\n\
+' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
@@ -99,5 +84,5 @@ RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
 # Exposer les ports
 EXPOSE 80 3000
 
-# Démarrer tous les services
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Démarrer l'application
+CMD ["/usr/local/bin/start.sh"]
