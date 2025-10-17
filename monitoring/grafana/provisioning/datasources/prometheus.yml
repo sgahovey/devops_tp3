@@ -1,17 +1,13 @@
-# Configuration Grafana - Datasource Prometheus
-# TP8 - MONITOR : Connexion automatique à Prometheus
-
 apiVersion: 1
 
 datasources:
   - name: Prometheus
     type: prometheus
-    access: proxy
     url: http://prometheus:9090
+    access: proxy
     isDefault: true
     editable: true
     jsonData:
-      timeInterval: "15s"
-      queryTimeout: "60s"
-      httpMethod: "POST"
-
+      timeInterval: 15s
+      queryTimeout: 60s
+      httpMethod: POST

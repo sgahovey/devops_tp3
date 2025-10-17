@@ -1,54 +1,16 @@
-# Configuration Prometheus pour TP8 - MONITOR
-# Collecte des métriques système et application
-
 global:
-  # Intervalle de scraping des métriques (toutes les 15 secondes)
   scrape_interval: 15s
-  # Timeout d'évaluation des règles
-  evaluation_interval: 15s
-  # Labels externes ajoutés à toutes les métriques
-  external_labels:
-    monitor: 'gestion-salles-monitor'
-    environment: 'development'
 
-# Configuration des targets à surveiller
 scrape_configs:
-  # Métriques Prometheus lui-même
-  - job_name: 'prometheus'
+  - job_name: prometheus
     static_configs:
-      - targets: ['localhost:9090']
-        labels:
-          service: 'prometheus'
+      - targets: [localhost:9090]
 
-  # Métriques système (CPU, RAM, Disque via Node Exporter)
-  - job_name: 'node-exporter'
+  - job_name: node-exporter
     static_configs:
-      - targets: ['node-exporter:9100']
-        labels:
-          service: 'system-metrics'
-          instance: 'gestion-salles-server'
+      - targets: [node-exporter:9100]
 
-  # Métriques PostgreSQL (via postgres-exporter si ajouté)
-  - job_name: 'postgres'
+  - job_name: backend-api
+    metrics_path: /api/metrics
     static_configs:
-      - targets: ['db:5432']
-        labels:
-          service: 'database'
-          db_name: 'gestion_salles'
-
-  # Métriques Backend PHP (si endpoint /metrics créé)
-  - job_name: 'backend'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['backend:80']
-        labels:
-          service: 'backend-api'
-          language: 'php'
-
-  # Métriques Frontend (via nginx-exporter si ajouté)
-  - job_name: 'frontend'
-    static_configs:
-      - targets: ['frontend:3000']
-        labels:
-          service: 'frontend-react'
-
+      - targets: [backend:80]
