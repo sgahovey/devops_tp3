@@ -57,18 +57,18 @@ RUN composer install --optimize-autoloader || true
 COPY --from=frontend-build /app/build ./frontend-build
 
 # Configuration PostgreSQL pour accepter les connexions locales
-RUN echo "host all all 127.0.0.1/32 md5" >> /etc/postgresql/15/main/pg_hba.conf
-RUN echo "host all all ::1/128 md5" >> /etc/postgresql/15/main/pg_hba.conf
-RUN echo "listen_addresses = '\''localhost'\''" >> /etc/postgresql/15/main/postgresql.conf
+RUN echo "host all all 127.0.0.1/32 md5" >> /etc/postgresql/17/main/pg_hba.conf
+RUN echo "host all all ::1/128 md5" >> /etc/postgresql/17/main/pg_hba.conf
+RUN echo "listen_addresses = '\''localhost'\''" >> /etc/postgresql/17/main/postgresql.conf
 
 # Créer le script de démarrage
 RUN echo '#!/bin/bash\n\
 # Démarrer PostgreSQL\n\
 service postgresql start\n\
-sleep 15\n\
+sleep 20\n\
 \n\
-# Configurer PostgreSQL\n\
-sudo -u postgres psql --command "ALTER USER postgres PASSWORD '\''postgres'\'';" 2>/dev/null || true\n\
+# Configurer PostgreSQL - méthode alternative\n\
+sudo -u postgres psql --command "\\password postgres" <<< "postgres\npostgres" 2>/dev/null || true\n\
 sudo -u postgres createdb -O postgres gestion_salles 2>/dev/null || true\n\
 \n\
 # Créer les tables et insérer les données\n\
