@@ -58,6 +58,61 @@ services:
       - app_network
     restart: unless-stopped
 
+  # Service Prometheus (Collecte des métriques)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gestion_salles_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # Service Grafana (Visualisation des métriques)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gestion_salles_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # Service Node Exporter (Métriques système : CPU, RAM, etc.)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: gestion_salles_node_exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - app_network
+    restart: unless-stopped
+
 # Réseau commun
 networks:
   app_network:
@@ -68,5 +123,9 @@ networks:
 volumes:
   postgres_data:
     name: gestion_salles_postgres_data
+  prometheus_data:
+    name: gestion_salles_prometheus_data
+  grafana_data:
+    name: gestion_salles_grafana_data
 
 

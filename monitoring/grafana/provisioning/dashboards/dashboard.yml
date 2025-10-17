@@ -1,0 +1,17 @@
+# Configuration Grafana - Dashboards
+# TP8 - MONITOR : Chargement automatique des dashboards
+
+apiVersion: 1
+
+providers:
+  - name: 'Gestion des Salles'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+

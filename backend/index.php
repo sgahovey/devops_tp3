@@ -67,6 +67,8 @@ if (preg_match('/^\/salles\/?$/', $path)) {
     }
 } elseif ($path === '/health') {
     echo json_encode(['status' => 'OK', 'message' => 'API de gestion des salles']);
+} elseif ($path === '/metrics') {
+    getMetrics($pdo);
 } else {
     http_response_code(404);
     echo json_encode(['error' => 'Route non trouvée']);
@@ -135,6 +137,56 @@ function deleteSalle($pdo, $id) {
     $stmt->execute([$id]);
     
     echo json_encode(['message' => 'Salle supprimée avec succès']);
+}
+
+// Fonction pour exposer les métriques (format Prometheus)
+function getMetrics($pdo) {
+    header('Content-Type: text/plain; version=0.0.4');
+    
+    // Compte le nombre total de salles
+    $stmt = $pdo->query('SELECT COUNT(*) as total FROM salles');
+    $total = $stmt->fetch()['total'];
+    
+    // Compte les salles disponibles
+    $stmt = $pdo->query('SELECT COUNT(*) as disponibles FROM salles WHERE disponible = true');
+    $disponibles = $stmt->fetch()['disponibles'];
+    
+    // Compte les salles non disponibles
+    $non_disponibles = $total - $disponibles;
+    
+    // Calcule la capacité totale
+    $stmt = $pdo->query('SELECT SUM(capacite) as capacite_totale FROM salles');
+    $capacite_totale = $stmt->fetch()['capacite_totale'] ?? 0;
+    
+    // Temps de réponse de la base de données
+    $start_time = microtime(true);
+    $pdo->query('SELECT 1');
+    $db_response_time = (microtime(true) - $start_time) * 1000; // en millisecondes
+    
+    // Format Prometheus
+    echo "# HELP salles_total Nombre total de salles\n";
+    echo "# TYPE salles_total gauge\n";
+    echo "salles_total $total\n\n";
+    
+    echo "# HELP salles_disponibles Nombre de salles disponibles\n";
+    echo "# TYPE salles_disponibles gauge\n";
+    echo "salles_disponibles $disponibles\n\n";
+    
+    echo "# HELP salles_non_disponibles Nombre de salles non disponibles\n";
+    echo "# TYPE salles_non_disponibles gauge\n";
+    echo "salles_non_disponibles $non_disponibles\n\n";
+    
+    echo "# HELP salles_capacite_totale Capacité totale de toutes les salles\n";
+    echo "# TYPE salles_capacite_totale gauge\n";
+    echo "salles_capacite_totale $capacite_totale\n\n";
+    
+    echo "# HELP db_response_time_ms Temps de réponse de la base de données en millisecondes\n";
+    echo "# TYPE db_response_time_ms gauge\n";
+    echo "db_response_time_ms $db_response_time\n\n";
+    
+    echo "# HELP api_up API est opérationnelle (1 = up, 0 = down)\n";
+    echo "# TYPE api_up gauge\n";
+    echo "api_up 1\n";
 }
 
 
